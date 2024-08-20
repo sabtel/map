@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Location Map with Routing</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+    <style>
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+        .button-container {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            text-align: center;
+        }
+        .button-container button {
+            padding: 10px 20px;
+            background-color: #ff5733;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 200px;
+        }
+        .button-container button:hover {
+            background-color: #ff2e00;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div class="button-container">
+        <button id="stopButton">Stop Tracking</button>
+        <button id="startButton">Start Tracking</button>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+    <script>
+        // Initialize the map and set its view
+        var map = L.map('map').setView([51.505, -0.09], 13); // Default coordinates (London)
+
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Marker for the user's location
+        var userMarker = L.marker([51.505, -0.09]).addTo(map).bindPopup('Your location').openPopup();
+
+        // Routing control
+        var routingControl = L.Routing.control({
+            waypoints: [],
+            routeWhileDragging: false, // Disable route dragging to keep the route constant
+            show: false,
+            addWaypoints: false
+        }).addTo(map);
+
+        var destination = null;  // Store the destination
+        var userMoved = false;   // Track if the user manually moves the map
+        var watchId = null;      // Store the geolocation watch ID
+
+        // Function to update the user's location on the map without changing the zoom level or center unless the user hasn't manually moved the map.
+        function updateUserLocation(lat, lon) {
+            userMarker.setLatLng([lat, lon]);
+            if (!userMoved) {
+                map.setView([lat, lon]);
+            }
+            userMarker.bindPopup('شما اینجا هستید ').openPopup();
+
+            // If a destination is set, update the route dynamically
+            if (destination) {
+                routingControl.setWaypoints([
+                    L.latLng(lat, lon),  // User's current location
+                    destination          // Selected destination
+                ]);
+            }
+        }
+
+        // Start watching the user's location
+        function startTracking() {
+            if (navigator.geolocation) {
+                watchId = navigator.geolocation.watchPosition(function (position) {
+                    var lat = position.coords.latitude;
+                    var lon = position.coords.longitude;
+                    updateUserLocation(lat, lon);
+                }, function () {
+                    alert("Geolocation failed. Default location shown.");
+                }, {
+                    enableHighAccuracy: true, // Enable high accuracy
+                    timeout: 5000,            // Wait up to 5 seconds for a position
+                    maximumAge: 0             // Do not use a cached position
+                });
+            } else {
+                alert("Geolocation is not supported by this browser.");
+            }
+        }
+
+        // Stop watching the user's location
+        function stopTracking() {
+            if (watchId !== null) {
+                navigator.geolocation.clearWatch(watchId); // Stop watching the user's location
+                watchId = null; // Reset watchId to allow restarting
+                alert("Location tracking stopped.");
+            }
+        }
+
+        // Start tracking by default when the page loads
+        startTracking();
+
+        // Add event listener to the "Stop Tracking" button
+        document.getElementById('stopButton').addEventListener('click', stopTracking);
+
+        // Add event listener to the "Start Tracking" button
+        document.getElementById('startButton').addEventListener('click', function() {
+            if (watchId === null) { // Only start tracking if it's not already active
+                startTracking();
+                alert("Location tracking started.");
+            }
+        });
+
+        // Add double-click event listener to the map to set the destination
+        map.on('dblclick', function(e) {
+            destination = e.latlng;
+
+            var lat = userMarker.getLatLng().lat;
+            var lon = userMarker.getLatLng().lng;
+
+            // Set the initial route when the destination is selected
+            routingControl.setWaypoints([
+                L.latLng(lat, lon),  // User's current location
+                destination          // Double-clicked location
+            ]);
+        });
+
+        // Detect manual map movement (panning or zooming)
+        map.on('movestart', function() {
+            userMoved = true; // User has manually moved the map
+        });
+
+        // Reset userMoved after some time if the user stops interacting with the map
+        map.on('moveend', function() {
+            setTimeout(function() {
+                userMoved = false; // Allow recentering after a period of inactivity
+            }, 5000); // Adjust the delay as needed
+        });
+    </script>
+</body>
+</html>
