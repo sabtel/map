@@ -73,13 +73,19 @@
         var destination = null;  // Store the destination
         var userMoved = false;   // Track if the user manually moves the map
         var watchId = null;      // Store the geolocation watch ID
+        var trackingActive = true; // Track if tracking is active
 
-        // Function to update the user's location on the map without changing the zoom level or center unless the user hasn't manually moved the map.
+        // Function to update the user's location on the map
         function updateUserLocation(lat, lon) {
             userMarker.setLatLng([lat, lon]);
-            if (!userMoved) {
+
+            // Center the map only when tracking is active
+            if (trackingActive) {
+                map.setView([lat, lon], map.getZoom());
+            } else if (!userMoved) {
                 map.setView([lat, lon]);
             }
+            
             userMarker.bindPopup('شما اینجا هستید ').openPopup();
 
             // If a destination is set, update the route dynamically
@@ -93,6 +99,7 @@
 
         // Start watching the user's location
         function startTracking() {
+            trackingActive = true; // Set tracking as active
             if (navigator.geolocation) {
                 watchId = navigator.geolocation.watchPosition(function (position) {
                     var lat = position.coords.latitude;
@@ -115,6 +122,7 @@
             if (watchId !== null) {
                 navigator.geolocation.clearWatch(watchId); // Stop watching the user's location
                 watchId = null; // Reset watchId to allow restarting
+                trackingActive = false; // Set tracking as inactive
                 alert("Location tracking stopped.");
             }
         }
